@@ -42,6 +42,6 @@ writeShellApplication {
         --with-nth=1,2 \
         --preview-window up:follow \
         --preview 'echo {3} | glow' \
-        --bind 'enter:become(git checkout -b {2})'
+        --bind 'enter:become(git checkout {2} 2>/dev/null || git checkout -b {2})'
   '';
 }
