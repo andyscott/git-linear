@@ -137,7 +137,6 @@ func branch() error {
 	for _, node := range resp.Data.Viewer.AssignedIssues.Nodes {
 		description, err := glam.Render(node.Description)
 		if err != nil {
-			cmd.Cancel()
 			return err
 		}
 		io.WriteString(stdin, fmt.Sprint(node.Identifier, "\t", node.BranchName, "\t", description, "\000"))
