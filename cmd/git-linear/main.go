@@ -87,8 +87,16 @@ func branch() error {
 		return err
 	}
 
+	glam, err := glamour.NewTermRenderer(
+		glamour.WithAutoStyle(),
+	)
+	if err != nil {
+		return err
+	}
+
 	cmd := exec.Command(
 		"fzf",
+		"--ansi",
 		"--header-lines=1",
 		"--read0",
 		"--delimiter=\t",
@@ -110,7 +118,7 @@ func branch() error {
 
 	err = cmd.Start()
 	if err != nil {
-		fmt.Println(err)
+		return err
 	}
 
 	data, err := linear.Request(map[string]interface{}{
@@ -125,14 +133,11 @@ func branch() error {
 		return err
 	}
 
-	glam, _ := glamour.NewTermRenderer(
-		glamour.WithAutoStyle(),
-	)
-
 	io.WriteString(stdin, fmt.Sprint("ISSUE", "\t", "BRANCH", "\t", "DESCRIPTION", "\000"))
 	for _, node := range resp.Data.Viewer.AssignedIssues.Nodes {
 		description, err := glam.Render(node.Description)
 		if err != nil {
+			cmd.Cancel()
 			return err
 		}
 		io.WriteString(stdin, fmt.Sprint(node.Identifier, "\t", node.BranchName, "\t", description, "\000"))
