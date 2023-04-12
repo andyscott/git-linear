@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"runtime"
 	"strings"
 	"time"
 
@@ -25,8 +26,15 @@ func main() {
 				Aliases: []string{"b"},
 				Usage:   "switch to a branch for a linear ticket",
 				Action: func(cCtx *cli.Context) error {
-					branch()
-					return nil
+					return branch()
+				},
+			},
+			{
+				Name:    "open",
+				Aliases: []string{"o"},
+				Usage:   "open a brower for the current branch's linear ticket",
+				Action: func(cCtx *cli.Context) error {
+					return open()
 				},
 			},
 		},
@@ -37,18 +45,46 @@ func main() {
 	}
 }
 
-func branch() {
+type LinearAPI struct {
+	token string
+}
+
+func NewLinearAPI() (*LinearAPI, error) {
 	homedir, err := os.UserHomeDir()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "unable to get home dir")
-		os.Exit(2)
+		return nil, fmt.Errorf("unable to get home dir: %w", err)
 	}
 	linearTokenData, err := ioutil.ReadFile(path.Join(homedir, ".linear_token"))
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "unable to read linear token")
-		os.Exit(2)
+		return nil, fmt.Errorf("unable to read linear token: %w", err)
 	}
 	linearToken := strings.TrimSpace(string(linearTokenData))
+	return &LinearAPI{
+		token: linearToken,
+	}, nil
+}
+
+func (api *LinearAPI) Request(jsonData map[string]interface{}) ([]byte, error) {
+	jsonValue, _ := json.Marshal(jsonData)
+	request, err := http.NewRequest("POST", "https://api.linear.app/graphql", bytes.NewBuffer(jsonValue))
+	request.Header.Add("Content-Type", "application/json")
+	request.Header.Add("Authorization", fmt.Sprintf("bearer %s", api.token))
+	client := &http.Client{Timeout: time.Second * 10}
+	response, err := client.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("The HTTP request failed with error %w", err)
+	}
+	defer response.Body.Close()
+	data, _ := ioutil.ReadAll(response.Body)
+	return data, nil
+}
+
+func branch() error {
+
+	linear, err := NewLinearAPI()
+	if err != nil {
+		return err
+	}
 
 	// If the user has glow installed, we can use that to help render previews.
 	_, err = exec.LookPath("glow")
@@ -76,8 +112,7 @@ func branch() {
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to open stdin pipe %s\n", err)
-		os.Exit(2)
+		return err
 	}
 	defer stdin.Close()
 
@@ -86,24 +121,13 @@ func branch() {
 		fmt.Println(err)
 	}
 
-	jsonData := map[string]interface{}{
-		"query":         tellMeAboutMyIssuesQuery,
-		"operationName": "tellMeAboutMyIssues",
-	}
-	jsonValue, _ := json.Marshal(jsonData)
-	request, err := http.NewRequest("POST", "https://api.linear.app/graphql", bytes.NewBuffer(jsonValue))
-	request.Header.Add("Content-Type", "application/json")
-	request.Header.Add("Authorization", fmt.Sprintf("bearer %s", linearToken))
-	client := &http.Client{Timeout: time.Second * 10}
-	response, err := client.Do(request)
+	data, err := linear.Request(map[string]interface{}{
+		"query": tellMeAboutMyIssuesQuery,
+	})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "The HTTP request failed with error %s\n", err)
-		os.Exit(2)
+		return err
 	}
-	defer response.Body.Close()
-	data, _ := ioutil.ReadAll(response.Body)
-
-	var resp Response
+	var resp tellMeAboutMyIssuesResponse
 	err = json.Unmarshal(data, &resp)
 
 	io.WriteString(stdin, fmt.Sprint("ISSUE", "\t", "BRANCH", "\t", "DESCRIPTION", "\000"))
@@ -114,10 +138,11 @@ func branch() {
 
 	cmd.Wait()
 
+	return nil
 }
 
 const tellMeAboutMyIssuesQuery = `
-query tellMeAboutMyIssues {
+query {
   viewer {
     assignedIssues(
       filter: {
@@ -135,7 +160,15 @@ query tellMeAboutMyIssues {
   }
 }`
 
-type Response struct {
+const urlFromBranchQuery = `
+query($branchName: String!) {
+  issueVcsBranchSearch(branchName: $branchName) {
+    url
+  }
+}
+`
+
+type tellMeAboutMyIssuesResponse struct {
 	Data struct {
 		Viewer struct {
 			AssignedIssues struct {
@@ -151,4 +184,60 @@ type Response struct {
 			}
 		}
 	} `json:"data"`
+}
+
+type urlFromBranchQueryResponse struct {
+	Data struct {
+		IssueVcsBranchSearch struct {
+			URL string
+		}
+	} `json:"data"`
+}
+
+func open() error {
+	linear, err := NewLinearAPI()
+	if err != nil {
+		return err
+	}
+
+	branchBytes, err := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
+	if err != nil {
+		return err
+	}
+	branch := strings.TrimSpace(string(branchBytes))
+
+	fmt.Printf("Opening %s ...\n", branch)
+
+	data, err := linear.Request(map[string]interface{}{
+		"query": urlFromBranchQuery,
+		"variables": map[string]string{
+			"branchName": branch,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	var resp urlFromBranchQueryResponse
+	err = json.Unmarshal(data, &resp)
+	if err != nil {
+		return err
+	}
+
+	return openURL(resp.Data.IssueVcsBranchSearch.URL)
+}
+
+func openURL(url string) error {
+	var err error
+
+	switch runtime.GOOS {
+	case "linux":
+		err = exec.Command("xdg-open", url).Start()
+	case "windows":
+		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	case "darwin":
+		err = exec.Command("open", url).Start()
+	default:
+		err = fmt.Errorf("unsupported platform")
+	}
+	return err
 }
