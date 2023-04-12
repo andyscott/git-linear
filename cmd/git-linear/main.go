@@ -4,16 +4,40 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path"
 	"strings"
 	"time"
+
+	"github.com/urfave/cli/v2"
 )
 
 func main() {
+	app := &cli.App{
+		Commands: []*cli.Command{
+			{
+				Name:    "branch",
+				Aliases: []string{"b"},
+				Usage:   "switch to a branch for a linear ticket",
+				Action: func(cCtx *cli.Context) error {
+					branch()
+					return nil
+				},
+			},
+		},
+	}
 
+	if err := app.Run(os.Args); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func branch() {
 	homedir, err := os.UserHomeDir()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "unable to get home dir")
@@ -25,6 +49,42 @@ func main() {
 		os.Exit(2)
 	}
 	linearToken := strings.TrimSpace(string(linearTokenData))
+
+	// If the user has glow installed, we can use that to help render previews.
+	_, err = exec.LookPath("glow")
+	var previewCommand string
+	if err == nil {
+		previewCommand = "echo {3} | glow"
+	} else {
+		previewCommand = "echo {3}"
+	}
+
+	cmd := exec.Command(
+		"fzf",
+		"--header-lines=1",
+		"--read0",
+		"--delimiter=\t",
+		"--with-nth=1,2",
+		"--layout=reverse",
+		"--preview-window=up:follow",
+		fmt.Sprintf("--preview=%s", previewCommand),
+		"--bind=enter:become(git checkout {2} 2>/dev/null || git checkout -b {2})",
+	)
+	cmd.Env = os.Environ()
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to open stdin pipe %s\n", err)
+		os.Exit(2)
+	}
+	defer stdin.Close()
+
+	err = cmd.Start()
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	jsonData := map[string]interface{}{
 		"query":         tellMeAboutMyIssuesQuery,
@@ -46,10 +106,13 @@ func main() {
 	var resp Response
 	err = json.Unmarshal(data, &resp)
 
-	fmt.Println("ISSUE", "\t", "BRANCH", "\t", "DESCRIPTION", "\000")
+	io.WriteString(stdin, fmt.Sprint("ISSUE", "\t", "BRANCH", "\t", "DESCRIPTION", "\000"))
 	for _, node := range resp.Data.Viewer.AssignedIssues.Nodes {
-		fmt.Print(node.Identifier, "\t", node.BranchName, "\t", node.Description, "\000")
+		io.WriteString(stdin, fmt.Sprint(node.Identifier, "\t", node.BranchName, "\t", node.Description, "\000"))
 	}
+	stdin.Close()
+
+	cmd.Wait()
 
 }
 
