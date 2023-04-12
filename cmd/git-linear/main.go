@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/glamour"
 	"github.com/urfave/cli/v2"
 )
 
@@ -86,15 +87,6 @@ func branch() error {
 		return err
 	}
 
-	// If the user has glow installed, we can use that to help render previews.
-	_, err = exec.LookPath("glow")
-	var previewCommand string
-	if err == nil {
-		previewCommand = "echo {3} | glow"
-	} else {
-		previewCommand = "echo {3}"
-	}
-
 	cmd := exec.Command(
 		"fzf",
 		"--header-lines=1",
@@ -103,7 +95,7 @@ func branch() error {
 		"--with-nth=1,2",
 		"--layout=reverse",
 		"--preview-window=up:follow",
-		fmt.Sprintf("--preview=%s", previewCommand),
+		"--preview=echo {3}",
 		"--bind=enter:become(git checkout {2} 2>/dev/null || git checkout -b {2})",
 	)
 	cmd.Env = os.Environ()
@@ -129,10 +121,21 @@ func branch() error {
 	}
 	var resp tellMeAboutMyIssuesResponse
 	err = json.Unmarshal(data, &resp)
+	if err != nil {
+		return err
+	}
+
+	glam, _ := glamour.NewTermRenderer(
+		glamour.WithAutoStyle(),
+	)
 
 	io.WriteString(stdin, fmt.Sprint("ISSUE", "\t", "BRANCH", "\t", "DESCRIPTION", "\000"))
 	for _, node := range resp.Data.Viewer.AssignedIssues.Nodes {
-		io.WriteString(stdin, fmt.Sprint(node.Identifier, "\t", node.BranchName, "\t", node.Description, "\000"))
+		description, err := glam.Render(node.Description)
+		if err != nil {
+			return err
+		}
+		io.WriteString(stdin, fmt.Sprint(node.Identifier, "\t", node.BranchName, "\t", description, "\000"))
 	}
 	stdin.Close()
 

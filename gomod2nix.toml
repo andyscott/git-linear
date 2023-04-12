@@ -1,9 +1,51 @@
 schema = 3
 
 [mod]
+  [mod."github.com/alecthomas/chroma"]
+    version = "v0.10.0"
+    hash = "sha256-p721vddVTv4iv1O0/dqpdk5xF6x9iLIHcrfh8JEVnqQ="
+  [mod."github.com/aymanbagabas/go-osc52"]
+    version = "v1.0.3"
+    hash = "sha256-+PPvxpq4eEcolG77a9g3r5Tw67Zs7hDOXS3nOYnizBQ="
+  [mod."github.com/aymerick/douceur"]
+    version = "v0.2.0"
+    hash = "sha256-NiBX8EfOvLXNiK3pJaZX4N73YgfzdrzRXdiBFe3X3sE="
+  [mod."github.com/charmbracelet/glamour"]
+    version = "v0.6.0"
+    hash = "sha256-L5V2P/9EPP80703KJUSMDiAPgjW1B4i1IbJADPmUCoY="
   [mod."github.com/cpuguy83/go-md2man/v2"]
     version = "v2.0.2"
     hash = "sha256-OvWCtDsVrYzM84SMQwOXPLBxnWnMC1hDm+KiI6zm3uk="
+  [mod."github.com/dlclark/regexp2"]
+    version = "v1.4.0"
+    hash = "sha256-Pk/S2x2rX7xnGFLyoHEw09CoNQimvz/msdPRsxLaLsc="
+  [mod."github.com/gorilla/css"]
+    version = "v1.0.0"
+    hash = "sha256-Mmt/IqHpgrtWpbr/AKcJyf/USQTqEuv1HVivY4eHzoQ="
+  [mod."github.com/lucasb-eyer/go-colorful"]
+    version = "v1.2.0"
+    hash = "sha256-Gg9dDJFCTaHrKHRR1SrJgZ8fWieJkybljybkI9x0gyE="
+  [mod."github.com/mattn/go-isatty"]
+    version = "v0.0.16"
+    hash = "sha256-YMaPZvShDfA98vqw1+zWWl7M1IT4nHPGBrAt7kHo8Iw="
+  [mod."github.com/mattn/go-runewidth"]
+    version = "v0.0.14"
+    hash = "sha256-O3QdxqAcJgQ+HL1v8oBA4iKBwJ2AlDN+F464027hWMU="
+  [mod."github.com/microcosm-cc/bluemonday"]
+    version = "v1.0.21"
+    hash = "sha256-kBzh0RKWgWPJteXgE5hm9I1YFMFGTDxGwNhjHKtnUSI="
+  [mod."github.com/muesli/reflow"]
+    version = "v0.3.0"
+    hash = "sha256-Pou2ybE9SFSZG6YfZLVV1Eyfm+X4FuVpDPLxhpn47Cc="
+  [mod."github.com/muesli/termenv"]
+    version = "v0.13.0"
+    hash = "sha256-0KO2SSfj4J6Q3rXMohV+hnncUHiY7nAWU8hUbDQkLHA="
+  [mod."github.com/olekukonko/tablewriter"]
+    version = "v0.0.5"
+    hash = "sha256-/5i70IkH/qSW5KjGzv8aQNKh9tHoz98tqtL0K2DMFn4="
+  [mod."github.com/rivo/uniseg"]
+    version = "v0.2.0"
+    hash = "sha256-GLj0jiGrT03Ept4V6FXCN1yeZ/b6PpS3MEXK6rYQ8Eg="
   [mod."github.com/russross/blackfriday/v2"]
     version = "v2.1.0"
     hash = "sha256-R+84l1si8az5yDqd5CYcFrTyNZ1eSYlpXKq6nFt4OTQ="
@@ -13,3 +55,15 @@ schema = 3
   [mod."github.com/xrash/smetrics"]
     version = "v0.0.0-20201216005158-039620a65673"
     hash = "sha256-WGHtW/OkLowkqOYIvXpDOpn9wqdH2+Dyx3+rYwpmvzI="
+  [mod."github.com/yuin/goldmark"]
+    version = "v1.5.2"
+    hash = "sha256-IR19krj7bhVPsaIJrj6os5lT8/j/MilI5rqUSMGO+iU="
+  [mod."github.com/yuin/goldmark-emoji"]
+    version = "v1.0.1"
+    hash = "sha256-liYCi6/EYG4obl51CzCaOmXf3fdzrU43J9VBZyHggEo="
+  [mod."golang.org/x/net"]
+    version = "v0.0.0-20221002022538-bcab6841153b"
+    hash = "sha256-62FPzn4txHv2jn9XZw1PmsjlJvG/BnbGXOm1wVWckLo="
+  [mod."golang.org/x/sys"]
+    version = "v0.0.0-20220811171246-fbc7d0a398ab"
+    hash = "sha256-acnc9aKY/SyebObLasV+gowfB0S+6ehz3hnUgAmQmSU="
