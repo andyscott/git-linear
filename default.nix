@@ -3,10 +3,11 @@
 , go
 , lib
 , buildGoApplication
-, writeShellApplication
+, makeWrapper
+, coreutils
 , fzf
 , git
-, glow
+, bash
 }:
 
 buildGoApplication {
@@ -16,6 +17,18 @@ buildGoApplication {
 
   inherit go;
   modules = ./gomod2nix.toml;
+
+  nativeBuildInputs = [ makeWrapper ];
+
+  postFixup = ''
+    wrapProgram $out/bin/git-linear \
+      --set PATH ${lib.makeBinPath [
+        git
+        fzf
+        bash # used for sh
+        coreutils # used for cat
+      ]}
+  '';
 
   meta = {
     description = "Quickly manage git branches for your linear tickets";

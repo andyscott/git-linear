@@ -180,7 +180,12 @@ func branch() error {
 		fmt.Sprintf("--preview=echo {1} > %s; cat %s", rPipeFile, wPipeFile),
 		"--bind=enter:become(git checkout {3} 2>/dev/null || git checkout -b {3})",
 	)
-	cmd.Env = os.Environ()
+	// fzf uses the
+	_, err = exec.LookPath("sh")
+	if err != nil {
+		return err
+	}
+	cmd.Env = append(os.Environ(), "SHELL=sh")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
