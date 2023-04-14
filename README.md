@@ -8,8 +8,9 @@ Work with your Linear tickets from the command line.
 git-linear branch
 ```
 
-This command will open an interactive UI (using [fzf](https://github.com/junegunn/fzf)) where you can
-select from the Linear tickets assigned to you.
+This command will open an interactive UI (using [fzf](https://github.com/junegunn/fzf))
+where you can select from the Linear tickets assigned to you. Selecting a
+ticket will automatically check out the corresponding branch in Git.
 
 ![git-linear branch screenshot](./git-linear-branch.png)
 
