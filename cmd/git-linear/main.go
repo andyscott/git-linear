@@ -133,7 +133,11 @@ func branch() error {
 		return err
 	}
 
-	io.WriteString(stdin, fmt.Sprint("ISSUE", "\t", "BRANCH", "\t", "DESCRIPTION", "\000"))
+	io.WriteString(stdin, fmt.Sprint(
+		"ISSUE", "\t",
+		"BRANCH", "\t",
+		"DESCRIPTION", "\000",
+	))
 	for _, node := range resp.Data.Viewer.AssignedIssues.Nodes {
 		description, err := glam.Render(node.Description)
 		if err != nil {
@@ -153,7 +157,7 @@ query {
   viewer {
     assignedIssues(
       filter: {
-        state: { name: { neq: "Done" } }
+        state: { type: { neq: "completed" } }
        }
     ) {
       nodes {
