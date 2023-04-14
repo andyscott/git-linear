@@ -31,12 +31,20 @@ func branch() error {
 	if err != nil {
 		return err
 	}
+
 	tempDir, err := os.MkdirTemp("", "git-linear-*")
 	if err != nil {
 		return err
 	}
 	defer os.RemoveAll(tempDir)
 
+	// We want to live communicate with fzf as the user interacts but there
+	// is no fzf API. Fortunately fzf is able to run shell commands on the,
+	// so we can set up communication over named pipes.
+	//
+	// These pipes are named from our program's perspective:
+	//   We will read from the read pipe and write to the write pipe.
+	//   fzf will write to the read pipe and read from the write pipe.
 	rPipeFile := path.Join(tempDir, "r-pipe")
 	wPipeFile := path.Join(tempDir, "w-pipe")
 	err = syscall.Mkfifo(rPipeFile, 0666)
@@ -182,7 +190,12 @@ type tellMeAboutMyIssuesResponse struct {
 	} `json:"data"`
 }
 
-func previewLoop(glam *glamour.TermRenderer, data tellMeAboutMyIssuesResponse, rPipeFile string, wPipeFile string) error {
+func previewLoop(
+	glam *glamour.TermRenderer,
+	data tellMeAboutMyIssuesResponse,
+	rPipeFile string,
+	wPipeFile string,
+) error {
 	r, err := os.OpenFile(rPipeFile, os.O_RDWR, 0640)
 	if err != nil {
 		return err
@@ -223,9 +236,7 @@ func previewLoop(glam *glamour.TermRenderer, data tellMeAboutMyIssuesResponse, r
 						n.Body,
 					)
 				}
-
 				blurb := strings.Join(lines, "\n")
-
 				out, err := glam.Render(blurb)
 				if err != nil {
 					return err
