@@ -100,11 +100,11 @@ func branch() error {
 		"--header-lines=1",
 		"--read0",
 		"--delimiter=\t",
-		"--with-nth=1,2",
+		"--with-nth=1,2,3",
 		"--layout=reverse",
 		"--preview-window=up:follow",
-		"--preview=echo {3}",
-		"--bind=enter:become(git checkout {2} 2>/dev/null || git checkout -b {2})",
+		"--preview=echo {4}",
+		"--bind=enter:become(git checkout {3} 2>/dev/null || git checkout -b {3})",
 	)
 	cmd.Env = os.Environ()
 	cmd.Stdout = os.Stdout
@@ -134,7 +134,8 @@ func branch() error {
 	}
 
 	io.WriteString(stdin, fmt.Sprint(
-		"ISSUE", "\t",
+		"ID", "\t",
+		"STATE", "\t",
 		"BRANCH", "\t",
 		"DESCRIPTION", "\000",
 	))
@@ -143,7 +144,12 @@ func branch() error {
 		if err != nil {
 			return err
 		}
-		io.WriteString(stdin, fmt.Sprint(node.Identifier, "\t", node.BranchName, "\t", description, "\000"))
+		io.WriteString(stdin, fmt.Sprint(
+			node.Identifier, "\t",
+			node.State.Name, "\t",
+			node.BranchName, "\t",
+			description, "\000",
+		))
 	}
 	stdin.Close()
 
