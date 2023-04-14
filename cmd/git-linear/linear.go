@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"path"
@@ -21,7 +21,7 @@ func NewLinearAPI() (*LinearAPI, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to get home dir: %w", err)
 	}
-	linearTokenData, err := ioutil.ReadFile(path.Join(homedir, ".linear_token"))
+	linearTokenData, err := os.ReadFile(path.Join(homedir, ".linear_token"))
 	if err != nil {
 		return nil, fmt.Errorf("unable to read linear token: %w", err)
 	}
@@ -34,14 +34,17 @@ func NewLinearAPI() (*LinearAPI, error) {
 func (api *LinearAPI) Request(jsonData map[string]interface{}) ([]byte, error) {
 	jsonValue, _ := json.Marshal(jsonData)
 	request, err := http.NewRequest("POST", "https://api.linear.app/graphql", bytes.NewBuffer(jsonValue))
+	if err != nil {
+		return nil, err
+	}
 	request.Header.Add("Content-Type", "application/json")
 	request.Header.Add("Authorization", fmt.Sprintf("bearer %s", api.token))
 	client := &http.Client{Timeout: time.Second * 10}
 	response, err := client.Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("The HTTP request failed with error %w", err)
+		return nil, fmt.Errorf("the HTTP request failed with error %w", err)
 	}
 	defer response.Body.Close()
-	data, _ := ioutil.ReadAll(response.Body)
+	data, _ := io.ReadAll(response.Body)
 	return data, nil
 }

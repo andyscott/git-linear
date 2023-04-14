@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -22,6 +21,9 @@ func branch() error {
 		return err
 	}
 
+	// As part of initialization glamour seems to send control characters to
+	// the terminal. If we initialize glamour later, these characters may
+	// wind up interfering with our terminal display.
 	glam, err := glamour.NewTermRenderer(
 		glamour.WithAutoStyle(),
 		glamour.WithWordWrap(80),
@@ -29,7 +31,7 @@ func branch() error {
 	if err != nil {
 		return err
 	}
-	tempDir, err := ioutil.TempDir("", "git-linear-*")
+	tempDir, err := os.MkdirTemp("", "git-linear-*")
 	if err != nil {
 		return err
 	}
