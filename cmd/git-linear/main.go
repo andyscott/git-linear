@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"path"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/charmbracelet/glamour"
@@ -80,6 +82,39 @@ func (api *LinearAPI) Request(jsonData map[string]interface{}) ([]byte, error) {
 	return data, nil
 }
 
+func previewLoop(glam *glamour.TermRenderer, data tellMeAboutMyIssuesResponse, rPipeFile string, wPipeFile string) error {
+	r, err := os.OpenFile(rPipeFile, os.O_RDWR, 0640)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+	reader := bufio.NewReader(r)
+
+	for {
+		identifier, err := reader.ReadString('\n')
+		if err != nil {
+			return err
+		}
+		identifier = strings.TrimSpace(identifier)
+		w, err := os.OpenFile(wPipeFile, os.O_WRONLY|os.O_TRUNC, 0600)
+		if err != nil {
+			return err
+		}
+
+		for _, node := range data.Data.Viewer.AssignedIssues.Nodes {
+			if node.Identifier == identifier {
+				description, err := glam.Render(node.Description)
+				if err != nil {
+					return err
+				}
+				w.WriteString(description)
+			}
+		}
+		w.Sync()
+		w.Close()
+	}
+}
+
 func branch() error {
 
 	linear, err := NewLinearAPI()
@@ -93,6 +128,22 @@ func branch() error {
 	if err != nil {
 		return err
 	}
+	tempDir, err := ioutil.TempDir("", "git-linear-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tempDir)
+
+	rPipeFile := path.Join(tempDir, "r-pipe")
+	wPipeFile := path.Join(tempDir, "w-pipe")
+	err = syscall.Mkfifo(rPipeFile, 0666)
+	if err != nil {
+		return err
+	}
+	err = syscall.Mkfifo(wPipeFile, 0666)
+	if err != nil {
+		return err
+	}
 
 	cmd := exec.Command(
 		"fzf",
@@ -100,10 +151,9 @@ func branch() error {
 		"--header-lines=1",
 		"--read0",
 		"--delimiter=\t",
-		"--with-nth=1,2,3",
 		"--layout=reverse",
 		"--preview-window=up:follow",
-		"--preview=echo {4}",
+		fmt.Sprintf("--preview=echo {1} > %s; cat %s", rPipeFile, wPipeFile),
 		"--bind=enter:become(git checkout {3} 2>/dev/null || git checkout -b {3})",
 	)
 	cmd.Env = os.Environ()
@@ -136,26 +186,35 @@ func branch() error {
 	io.WriteString(stdin, fmt.Sprint(
 		"ID", "\t",
 		"STATE", "\t",
-		"BRANCH", "\t",
-		"DESCRIPTION", "\000",
+		"BRANCH", "\000",
 	))
 	for _, node := range resp.Data.Viewer.AssignedIssues.Nodes {
-		description, err := glam.Render(node.Description)
-		if err != nil {
-			return err
-		}
 		io.WriteString(stdin, fmt.Sprint(
 			node.Identifier, "\t",
 			node.State.Name, "\t",
-			node.BranchName, "\t",
-			description, "\000",
+			node.BranchName, "\000",
 		))
 	}
 	stdin.Close()
 
-	cmd.Wait()
+	previewLoopDone := make(chan error)
+	go func() {
+		previewLoopDone <- previewLoop(glam, resp, rPipeFile, wPipeFile)
+		close(previewLoopDone)
+	}()
 
-	return nil
+	cmdDone := make(chan error)
+	go func() {
+		cmdDone <- cmd.Wait()
+		close(cmdDone)
+	}()
+
+	select {
+	case err := <-previewLoopDone:
+		return err
+	case err := <-cmdDone:
+		return err
+	}
 }
 
 const tellMeAboutMyIssuesQuery = `
