@@ -1,0 +1,25 @@
+repos:
+  - repo: local
+    hooks:
+      - id: nix-nixpkgs-fmt
+        name: "[nix]      nixpkgs-fmt"
+        entry: nixpkgs-fmt
+        language: system
+        files: &nix-files \.nix$
+      - id: statix
+        name: "[nix]      statix"
+        entry: statix fix
+        language: system
+        files: *nix-files
+        pass_filenames: false
+      - id: gomod2nix
+        name: "[go]       gomod2nix"
+        entry: gomod2nix
+        language: system
+        files: go\.mod|go\.sum|gomod2nix\.toml
+        pass_filenames: false
+      - id: yamlfmt
+        name: "[yaml]     yamlfmt"
+        entry: yamlfmt
+        language: system
+        types: [yaml]
