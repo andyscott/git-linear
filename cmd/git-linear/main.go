@@ -103,11 +103,34 @@ func previewLoop(glam *glamour.TermRenderer, data tellMeAboutMyIssuesResponse, r
 
 		for _, node := range data.Data.Viewer.AssignedIssues.Nodes {
 			if node.Identifier == identifier {
-				description, err := glam.Render(node.Description)
+				lines := []string{
+					"# " + node.Title,
+					"",
+					node.Description,
+				}
+				if len(node.Comments.Nodes) > 0 {
+					lines = append(lines,
+						"# Activity",
+						"",
+					)
+				}
+				for _, n := range node.Comments.Nodes {
+					nameBit := "**" + n.User.DisplayName + ":**"
+					timeBit := "_" + n.CreatedAt + "_"
+					lines = append(lines,
+						nameBit+strings.Repeat(" ", 80-len(nameBit)-len(timeBit))+timeBit,
+						"",
+						n.Body,
+					)
+				}
+
+				blurb := strings.Join(lines, "\n")
+
+				out, err := glam.Render(blurb)
 				if err != nil {
 					return err
 				}
-				w.WriteString(description)
+				w.WriteString(out)
 			}
 		}
 		w.Sync()
@@ -124,6 +147,7 @@ func branch() error {
 
 	glam, err := glamour.NewTermRenderer(
 		glamour.WithAutoStyle(),
+		glamour.WithWordWrap(80),
 	)
 	if err != nil {
 		return err
@@ -231,6 +255,15 @@ query {
         description    
         state { name }
         branchName
+		comments {
+		  nodes {
+		    user {
+			  displayName
+			}
+			body
+			createdAt
+		  }
+		}
       }
     }
   }
@@ -256,6 +289,15 @@ type tellMeAboutMyIssuesResponse struct {
 						Name string
 					}
 					BranchName string
+					Comments   struct {
+						Nodes []struct {
+							User struct {
+								DisplayName string
+							}
+							Body      string
+							CreatedAt string
+						}
+					}
 				}
 			}
 		}
