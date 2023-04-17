@@ -12,6 +12,9 @@ import (
 	"syscall"
 
 	"github.com/charmbracelet/glamour"
+	"github.com/fatih/color"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 )
 
 func branch() error {
@@ -103,16 +106,47 @@ func branch() error {
 		return err
 	}
 
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	repo, err := git.PlainOpen(cwd)
+	if err != nil {
+		return err
+	}
+
+	const stateHeader = "STATE  "
 	io.WriteString(stdin, fmt.Sprint(
-		"ID", "\t",
-		"STATE", "\t",
-		"BRANCH", "\000",
+		"ID",
+		"\t",
+		stateHeader,
+		"\t",
+		"  BRANCH",
+		"\000",
 	))
 	for _, node := range resp.Data.Viewer.AssignedIssues.Nodes {
+
+		var state string
+		if len(node.State.Name) > len(stateHeader) {
+			state = node.State.Name[:len(stateHeader)]
+		} else {
+			state = node.State.Name
+		}
+
+		ref, _ := repo.Storer.Reference(plumbing.NewBranchReferenceName(node.BranchName))
+		var indicator string
+		if ref != nil {
+			indicator = color.GreenString("∃ ")
+		} else {
+			indicator = "  "
+		}
 		io.WriteString(stdin, fmt.Sprint(
-			node.Identifier, "\t",
-			node.State.Name, "\t",
-			node.BranchName, "\000",
+			node.Identifier,
+			"\t",
+			state,
+			"\t",
+			indicator, node.BranchName,
+			"\000",
 		))
 	}
 	stdin.Close()
