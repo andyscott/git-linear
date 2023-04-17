@@ -22,7 +22,7 @@ buildGoApplication {
 
   postFixup = ''
     wrapProgram $out/bin/git-linear \
-      --set PATH ${lib.makeBinPath [
+      --prefix PATH ${lib.makeBinPath [
         git
         fzf
         bash # used for sh
