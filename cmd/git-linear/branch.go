@@ -69,7 +69,7 @@ func branch() error {
 		"--header=╱ ENTER checkout / CTRL-O open browser ╱\n\n",
 		"--preview-window=up:follow",
 		fmt.Sprintf("--preview=echo 'preview {1}' > %s; cat %s", rPipeFile, wPipeFile),
-		"--bind=enter:become(git checkout {3} 2>/dev/null || git checkout -b {3})",
+		"--bind=enter:become(git checkout {4} 2>/dev/null || git checkout -b {4})",
 		fmt.Sprintf("--bind=ctrl-o:execute-silent(echo 'open {1}' > %s)", rPipeFile),
 	)
 	// fzf uses "$SHELL -c COMMAND" to launch the preview and become
@@ -121,7 +121,9 @@ func branch() error {
 		"\t",
 		stateHeader,
 		"\t",
-		"  BRANCH",
+		"∃",
+		"\t",
+		"BRANCH",
 		"\000",
 	))
 	for _, node := range resp.Data.Viewer.AssignedIssues.Nodes {
@@ -136,16 +138,18 @@ func branch() error {
 		ref, _ := repo.Storer.Reference(plumbing.NewBranchReferenceName(node.BranchName))
 		var indicator string
 		if ref != nil {
-			indicator = color.GreenString("∃ ")
+			indicator = color.GreenString("✓")
 		} else {
-			indicator = "  "
+			indicator = ""
 		}
 		io.WriteString(stdin, fmt.Sprint(
 			node.Identifier,
 			"\t",
 			state,
 			"\t",
-			indicator, node.BranchName,
+			indicator,
+			"\t",
+			node.BranchName,
 			"\000",
 		))
 	}
