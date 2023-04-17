@@ -63,9 +63,11 @@ func branch() error {
 		"--read0",
 		"--delimiter=\t",
 		"--layout=reverse",
+		"--header=╱ ENTER checkout / CTRL-O open browser ╱\n\n",
 		"--preview-window=up:follow",
-		fmt.Sprintf("--preview=echo {1} > %s; cat %s", rPipeFile, wPipeFile),
+		fmt.Sprintf("--preview=echo 'preview {1}' > %s; cat %s", rPipeFile, wPipeFile),
 		"--bind=enter:become(git checkout {3} 2>/dev/null || git checkout -b {3})",
+		fmt.Sprintf("--bind=ctrl-o:execute-silent(echo 'open {1}' > %s)", rPipeFile),
 	)
 	// fzf uses "$SHELL -c COMMAND" to launch the preview and become
 	// functionality. We pin the shell to sh as a precautionary measure to
@@ -115,10 +117,10 @@ func branch() error {
 	}
 	stdin.Close()
 
-	previewLoopDone := make(chan error)
+	commandLoopDone := make(chan error)
 	go func() {
-		previewLoopDone <- previewLoop(glam, resp, rPipeFile, wPipeFile)
-		close(previewLoopDone)
+		commandLoopDone <- commandLoop(glam, resp, rPipeFile, wPipeFile)
+		close(commandLoopDone)
 	}()
 
 	cmdDone := make(chan error)
@@ -128,7 +130,7 @@ func branch() error {
 	}()
 
 	select {
-	case err := <-previewLoopDone:
+	case err := <-commandLoopDone:
 		return err
 	case err := <-cmdDone:
 		return err
@@ -149,6 +151,7 @@ query {
         description    
         state { name }
         branchName
+		url
 		comments {
 		  nodes {
 		    user {
@@ -163,34 +166,37 @@ query {
   }
 }`
 
+type Issue struct {
+	Identifier  string
+	Title       string
+	Description string
+	State       struct {
+		Name string
+	}
+	BranchName string
+	URL        string
+	Comments   struct {
+		Nodes []struct {
+			User struct {
+				DisplayName string
+			}
+			Body      string
+			CreatedAt string
+		}
+	}
+}
+
 type tellMeAboutMyIssuesResponse struct {
 	Data struct {
 		Viewer struct {
 			AssignedIssues struct {
-				Nodes []struct {
-					Identifier  string
-					Title       string
-					Description string
-					State       struct {
-						Name string
-					}
-					BranchName string
-					Comments   struct {
-						Nodes []struct {
-							User struct {
-								DisplayName string
-							}
-							Body      string
-							CreatedAt string
-						}
-					}
-				}
+				Nodes []Issue
 			}
 		}
 	} `json:"data"`
 }
 
-func previewLoop(
+func commandLoop(
 	glam *glamour.TermRenderer,
 	data tellMeAboutMyIssuesResponse,
 	rPipeFile string,
@@ -204,47 +210,67 @@ func previewLoop(
 	reader := bufio.NewReader(r)
 
 	for {
-		identifier, err := reader.ReadString('\n')
-		if err != nil {
-			return err
-		}
-		identifier = strings.TrimSpace(identifier)
-		w, err := os.OpenFile(wPipeFile, os.O_WRONLY|os.O_TRUNC, 0600)
+		line, err := reader.ReadString('\n')
 		if err != nil {
 			return err
 		}
 
+		parts := strings.Split(strings.TrimSpace(line), " ")
+
+		command := parts[0]
+		identifier := parts[1]
+		var issue Issue
 		for _, node := range data.Data.Viewer.AssignedIssues.Nodes {
 			if node.Identifier == identifier {
-				lines := []string{
-					"# " + node.Title,
-					"",
-					node.Description,
-				}
-				if len(node.Comments.Nodes) > 0 {
-					lines = append(lines,
-						"# Activity",
-						"",
-					)
-				}
-				for _, n := range node.Comments.Nodes {
-					nameBit := "**" + n.User.DisplayName + ":**"
-					timeBit := "_" + n.CreatedAt + "_"
-					lines = append(lines,
-						nameBit+strings.Repeat(" ", 80-len(nameBit)-len(timeBit))+timeBit,
-						"",
-						n.Body,
-					)
-				}
-				blurb := strings.Join(lines, "\n")
-				out, err := glam.Render(blurb)
-				if err != nil {
-					return err
-				}
-				w.WriteString(out)
+				issue = node
+				break
 			}
 		}
-		w.Sync()
-		w.Close()
+		if issue.Identifier == "" {
+			return fmt.Errorf("unable to find issue for %s", identifier)
+		}
+
+		switch command {
+		case "preview":
+
+			w, err := os.OpenFile(wPipeFile, os.O_WRONLY|os.O_TRUNC, 0600)
+			if err != nil {
+				return err
+			}
+
+			lines := []string{
+				"# " + issue.Title,
+				"",
+				issue.Description,
+			}
+			if len(issue.Comments.Nodes) > 0 {
+				lines = append(lines,
+					"# Activity",
+					"",
+				)
+			}
+			for _, n := range issue.Comments.Nodes {
+				nameBit := "**" + n.User.DisplayName + ":**"
+				timeBit := "_" + n.CreatedAt + "_"
+				lines = append(lines,
+					nameBit+strings.Repeat(" ", 80-len(nameBit)-len(timeBit))+timeBit,
+					"",
+					n.Body,
+				)
+			}
+			blurb := strings.Join(lines, "\n")
+			out, err := glam.Render(blurb)
+			if err != nil {
+				return err
+			}
+			w.WriteString(out)
+
+			w.Sync()
+			w.Close()
+
+		case "open":
+			openURL(issue.URL)
+		}
+
 	}
 }
