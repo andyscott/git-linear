@@ -126,6 +126,7 @@ func branch() error {
 		"BRANCH",
 		"\000",
 	))
+
 	for _, node := range resp.Data.Viewer.AssignedIssues.Nodes {
 
 		var state string
@@ -136,10 +137,34 @@ func branch() error {
 		}
 
 		ref, _ := repo.Storer.Reference(plumbing.NewBranchReferenceName(node.BranchName))
+		fmt.Println("ref is", ref)
+		if ref == nil {
+			iter, err := repo.Storer.IterReferences()
+			if err == nil {
+				defer iter.Close()
+				for {
+					r, err := iter.Next()
+					if err == io.EOF {
+						break
+					}
+					if err != nil {
+						break
+					}
+					if strings.Contains(strings.ToUpper(r.Name().String()), node.Identifier) {
+						ref = r
+						break
+					}
+				}
+			}
+		}
+
+		var branch string
 		var indicator string
 		if ref != nil {
+			branch = ref.Name().String()
 			indicator = color.GreenString("✓")
 		} else {
+			branch = node.BranchName
 			indicator = ""
 		}
 		io.WriteString(stdin, fmt.Sprint(
@@ -149,7 +174,7 @@ func branch() error {
 			"\t",
 			indicator,
 			"\t",
-			node.BranchName,
+			branch,
 			"\000",
 		))
 	}
